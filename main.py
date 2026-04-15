@@ -77,7 +77,7 @@ QR_FETCH_TIMEOUT_SECONDS = 16
 LOGIN_WAIT_SECONDS = 60
 LOGIN_REFRESH_SECONDS = 12
 SEND_RETRY_COUNT = 5
-SEND_CONFIRM_TIMEOUT_SECONDS = 12
+SEND_CONFIRM_TIMEOUT_SECONDS = 4
 def log(message: str) -> None:
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] {message}", flush=True)
@@ -600,8 +600,14 @@ class DouyinEngine:
             await self.wait_until(_message_visible_in_chat, timeout_seconds, f"message_confirm_{unique_line}")
             return True
         except TimeoutError:
-            log(f"confirm_failed: {unique_line} not found on right side within {timeout_seconds}s")
             return False
+
+    async def message_editor_is_cleared(self, editor) -> bool:
+        try:
+            content = await editor.evaluate("(node) => (node.innerText || '').trim()")
+        except PlaywrightError:
+            return False
+        return not content
 
     async def _send_msg_single_attempt_impl(self, page, name: str) -> tuple[bool, str]:
         log(f"{name} step=open_start")
@@ -649,11 +655,13 @@ class DouyinEngine:
 
         log(f"{name} step=submit")
         await page.keyboard.press("Enter")
-        await asyncio.sleep(1.0) # 稍微增加一点提交后的基础等待时间
+        await asyncio.sleep(0.8)
 
-        # 唯一信任 confirm_message_sent (探测聊天列表中是否存在带有唯一时间戳的消息)
-        # 不再使用 message_editor_is_cleared 作为备选，因为它在某些 UI 卡顿时会产生误判(编辑器虽然清空但消息其实没发出去)
         if await self.confirm_message_sent(page, time_line, SEND_CONFIRM_TIMEOUT_SECONDS):
+            await self.wait_for_conversation_items(page, timeout_seconds=8)
+            return True, fire
+
+        if await self.message_editor_is_cleared(editor):
             await self.wait_for_conversation_items(page, timeout_seconds=8)
             return True, fire
 
@@ -690,9 +698,12 @@ class DouyinEngine:
                 normalized_cookies.append(normalized)
             if normalized_cookies:
                 await context.add_cookies(normalized_cookies)
-                log(f"cookies_loaded count={len(normalized_cookies)}")
-        except (OSError, json.JSONDecodeError, PlaywrightError) as exc:
-            log(f"cookie_load_failed: {exc}")
+        except OSError as exc:
+            log(f"cookie_file_read_failed: {exc}")
+        except json.JSONDecodeError as exc:
+            log(f"cookie_json_failed: {exc}")
+        except PlaywrightError as exc:
+            log(f"cookie_add_failed: {exc}")
 
     async def save_cookies(self, context) -> None:
         try:

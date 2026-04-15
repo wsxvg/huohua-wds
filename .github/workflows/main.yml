@@ -21,17 +21,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # 启用 pip 缓存，加速后续运行
 
-      - name: 📦 安装 Pip 依赖
+      - name: 📦 安装环境
         run: |
           python -m pip install --upgrade pip
           pip install playwright requests opencv-python-headless numpy
-
-      - name: 🎭 安装 Playwright 浏览器
-        # 移除 --with-deps，因为 ubuntu-latest 预装了大部分库。
-        # 如果后续报错缺少库，再有针对性地添加。
-        run: playwright install chromium
+          playwright install --with-deps chromium
 
       - name: 🚀 执行任务
         run: python main.py
