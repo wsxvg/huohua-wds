@@ -690,7 +690,6 @@ class DouyinEngine:
                 if not name or not domain:
                     continue
                 
-                # 规范化 Cookie 格式，去除可能导致 Playwright 报错的无效字段
                 normalized = {
                     "name": name,
                     "value": str(cookie.get("value", "")),
@@ -701,7 +700,6 @@ class DouyinEngine:
                     "sameSite": cookie.get("sameSite", "Lax")
                 }
                 
-                # 处理过期时间
                 expires = cookie.get("expires")
                 if isinstance(expires, (int, float)) and expires > 0:
                     normalized["expires"] = expires
@@ -713,15 +711,9 @@ class DouyinEngine:
 
             if normalized_cookies:
                 await context.add_cookies(normalized_cookies)
-                log(f"cookies_loaded count={len(normalized_cookies)} sessionid={session_id_found}")
-            else:
-                log("no_valid_cookies_found_in_file")
-        except OSError as exc:
-            log(f"cookie_file_read_failed: {exc}")
-        except json.JSONDecodeError as exc:
-            log(f"cookie_json_failed: {exc}")
-        except PlaywrightError as exc:
-            log(f"cookie_add_failed: {exc}")
+                log(f"cookies_injected count={len(normalized_cookies)} sessionid={session_id_found}")
+        except (OSError, json.JSONDecodeError, PlaywrightError) as exc:
+            log(f"cookie_load_failed: {exc}")
 
     async def save_cookies(self, context) -> None:
         try:

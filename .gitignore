@@ -31,6 +31,3 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
-
-# Sensitive data
-douyin_cookies.json
