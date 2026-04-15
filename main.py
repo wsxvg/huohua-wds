@@ -675,22 +675,47 @@ class DouyinEngine:
 
     async def load_cookies(self, context) -> None:
         if not os.path.exists(COOKIE_FILE):
+            log(f"cookie_file_not_found: {COOKIE_FILE}")
             return
 
         try:
             with open(COOKIE_FILE, "r", encoding="utf-8") as file:
                 cookies = json.load(file)
+            
             normalized_cookies = []
+            session_id_found = False
             for cookie in cookies:
-                if not cookie.get("name") or not cookie.get("domain"):
+                name = cookie.get("name")
+                domain = cookie.get("domain")
+                if not name or not domain:
                     continue
-                normalized = dict(cookie)
-                if normalized.get("expires", 0) < 0:
-                    normalized.pop("expires", None)
+                
+                # 规范化 Cookie 格式，去除可能导致 Playwright 报错的无效字段
+                normalized = {
+                    "name": name,
+                    "value": str(cookie.get("value", "")),
+                    "domain": domain,
+                    "path": cookie.get("path", "/"),
+                    "secure": cookie.get("secure", False),
+                    "httpOnly": cookie.get("httpOnly", False),
+                    "sameSite": cookie.get("sameSite", "Lax")
+                }
+                
+                # 处理过期时间
+                expires = cookie.get("expires")
+                if isinstance(expires, (int, float)) and expires > 0:
+                    normalized["expires"] = expires
+                
+                if name in ("sessionid", "sessionid_ss"):
+                    session_id_found = True
+                
                 normalized_cookies.append(normalized)
+
             if normalized_cookies:
                 await context.add_cookies(normalized_cookies)
-                log(f"cookies_loaded count={len(normalized_cookies)}")
+                log(f"cookies_loaded count={len(normalized_cookies)} sessionid={session_id_found}")
+            else:
+                log("no_valid_cookies_found_in_file")
         except OSError as exc:
             log(f"cookie_file_read_failed: {exc}")
         except json.JSONDecodeError as exc:
@@ -738,6 +763,12 @@ class DouyinEngine:
                 )
                 page = await context.new_page()
                 page.set_default_timeout(DEFAULT_PAGE_TIMEOUT_MS)
+
+                # 在加载 Cookie 前先访问一下域名，帮助浏览器建立上下文，有时能解决 add_cookies 不生效的问题
+                try:
+                    await page.goto("https://www.douyin.com/", wait_until="commit", timeout=10_000)
+                except:
+                    pass
 
                 await self.load_cookies(context)
                 if not await self.safe_reset_chat_page(page, "startup"):
