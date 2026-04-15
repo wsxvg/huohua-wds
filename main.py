@@ -690,6 +690,7 @@ class DouyinEngine:
                 normalized_cookies.append(normalized)
             if normalized_cookies:
                 await context.add_cookies(normalized_cookies)
+                log(f"cookies_loaded count={len(normalized_cookies)}")
         except OSError as exc:
             log(f"cookie_file_read_failed: {exc}")
         except json.JSONDecodeError as exc:
@@ -742,7 +743,18 @@ class DouyinEngine:
                 if not await self.safe_reset_chat_page(page, "startup"):
                     raise RuntimeError("startup_chat_open_failed")
 
-                if not await self.is_visible(page.locator(CHAT_LIST_SELECTOR).first):
+                # 增加对 Cookie 登录状态的最终判定等待，避免页面刚加载完时 Chat List 还没渲染出来
+                login_signal = await self.get_login_signal(page, context)
+                if not login_signal:
+                    log("waiting_for_login_settle")
+                    for _ in range(6):
+                        await asyncio.sleep(1.0)
+                        login_signal = await self.get_login_signal(page, context)
+                        if login_signal:
+                            log(f"login_settled signal={login_signal}")
+                            break
+
+                if not login_signal:
                     log("login_required")
                     login_ok = False
 
