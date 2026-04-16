@@ -2,6 +2,18 @@ name: 抖音自动化运维引擎
 
 on:
   workflow_dispatch:
+    inputs:
+      trigger_source:
+        description: '触发来源'
+        required: false
+        default: 'manual'
+      triggered_at:
+        description: '触发时间(ISO)'
+        required: false
+      beijing_time:
+        description: '北京时间'
+        required: false
+  
   schedule:
     - cron: '0 19 * * *'  # 北京时间每天凌晨 03:00 运行
 
@@ -9,13 +21,21 @@ jobs:
   run-and-sync:
     runs-on: ubuntu-latest
     env:
-      TZ: Asia/Shanghai  # 设置时区为北京时间
+      TZ: Asia/Shanghai
     permissions:
       contents: write
 
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
+
+      - name: 🔔 显示触发信息
+        run: |
+          echo "========== 触发信息 =========="
+          echo "来源: ${{ github.event.inputs.trigger_source || '定时任务(schedule)' }}"
+          echo "触发时间: ${{ github.event.inputs.beijing_time || 'N/A' }}"
+          echo "实际运行时间(北京): $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "=============================="
 
       - name: 🐍 设置 Python 3.10
         uses: actions/setup-python@v5
