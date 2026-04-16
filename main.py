@@ -24,7 +24,7 @@ DOUYIN_PASSWORD = os.getenv("DOUYIN_PASSWORD", "Wan1314520.")
 COOKIE_FILE = os.getenv("COOKIE_FILE", "douyin_cookies.json")
 CF_TRIGGER_URL = os.getenv(
     "CF_TRIGGER_URL",
-    "https://douyin-trigger.w17826038535.workers.dev/?key=Wan1314520",
+    "https://bold-alpaca-44.wsxvg.deno.net/",
 )
 GITHUB_ACTIONS_URL = os.getenv(
     "GITHUB_ACTIONS_URL",
